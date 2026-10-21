@@ -60,12 +60,16 @@
       var m = d.querySelector('#fbm');
       m.textContent = '';
       auth.signInWithEmailAndPassword(d.querySelector('#fbe').value.trim(), d.querySelector('#fbp').value).then(function (c) {
-        return isAdmin(c.user).then(function (ok) {
-          if (!ok) { m.textContent = 'هذا الحساب ليس حساب المشرف'; return auth.signOut(); }
+        if (!c.user.emailVerified) { m.textContent = 'البريد غير مؤكَّد: استخدم Reset password من Firebase ثم افتح الرابط من بريدك'; return auth.signOut(); }
+        return fs.collection('admins').doc(c.user.email.toLowerCase()).get().then(function (d) {
+          if (!d.exists) { m.textContent = 'لا يوجد مستند admins باسم: ' + c.user.email.toLowerCase(); return auth.signOut(); }
+          return true;
+        }, function (e) { m.textContent = 'القواعد ترفض القراءة (' + (e.code || e.message) + '): انشر قواعد Firestore'; return auth.signOut(); }).then(function (ok) {
+          if (!ok) return;
           location.hash = '#/admin';
           location.reload();
         });
-      }, function () { m.textContent = 'بيانات الدخول غير صحيحة'; });
+      }, function (e) { m.textContent = 'فشل الدخول: ' + (e && e.code || ''); });
     };
   }
   function chk() { if (location.hash === '#/login') showLogin(); }
