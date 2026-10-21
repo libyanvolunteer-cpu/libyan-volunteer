@@ -22,14 +22,18 @@
     });
   };
   var isAdmin = function (u) {
-    return !!u && !u.isAnonymous && (u.email || '').toLowerCase() === String(window.ADMIN_EMAIL).toLowerCase();
+    if (!u || u.isAnonymous || !u.emailVerified || !u.email) return Promise.resolve(false);
+    return fs.collection('admins').doc(u.email.toLowerCase()).get().then(
+      function (d) { return d.exists; },
+      function () { return false; }
+    );
   };
 
   window.claude = {
     use: function (k) {
       if (k === 'db') return cur().then(function () { return fs; });
       if (k === 'user') return cur().then(function (u) {
-        return { id: function () { return Promise.resolve(u.uid); }, canEdit: function () { return Promise.resolve(isAdmin(u)); } };
+        return { id: function () { return Promise.resolve(u.uid); }, canEdit: function () { return isAdmin(u); } };
       });
       return Promise.resolve(null);
     }
@@ -56,9 +60,11 @@
       var m = d.querySelector('#fbm');
       m.textContent = '';
       auth.signInWithEmailAndPassword(d.querySelector('#fbe').value.trim(), d.querySelector('#fbp').value).then(function (c) {
-        if (!isAdmin(c.user)) { m.textContent = 'هذا الحساب ليس حساب المشرف'; return auth.signOut(); }
-        location.hash = '#/admin';
-        location.reload();
+        return isAdmin(c.user).then(function (ok) {
+          if (!ok) { m.textContent = 'هذا الحساب ليس حساب المشرف'; return auth.signOut(); }
+          location.hash = '#/admin';
+          location.reload();
+        });
       }, function () { m.textContent = 'بيانات الدخول غير صحيحة'; });
     };
   }
